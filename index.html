@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MSWIL JSON FINAL TEST</title>
+<title>MSWIL – 3D Printed Parts Ordering</title>
 
 <style>
 body { font-family: Arial, sans-serif; padding: 24px; }
@@ -10,28 +10,44 @@ body { font-family: Arial, sans-serif; padding: 24px; }
 .header {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
 }
-
 .company-name {
   font-size: 30px;
   font-weight: bold;
 }
-
 .company-logo {
-  height: 60px;   /* CLEAR, BIG LOGO */
+  height: 55px;
 }
 
 table {
-  border-collapse: collapse;
   width: 100%;
-  margin-top: 20px;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+th, td {
+  border: 1px solid #777;
+  padding: 8px;
+}
+th { background: #f2f2f2; }
+
+input[type="number"] { width: 70px; }
+button { padding: 6px 10px; cursor: pointer; }
+
+.price-zero {
+  background: #fff3cd;
 }
 
-th, td {
-  border: 1px solid #555;
-  padding: 6px;
+footer {
+  margin-top: 30px;
+  padding-top: 10px;
+  border-top: 1px solid #ccc;
+  text-align: center;
+  font-size: 12px;
+  color: #555;
 }
+
+.status { font-weight: bold; }
 </style>
 </head>
 
@@ -40,52 +56,185 @@ th, td {
 <!-- HEADER -->
 <div class="header">
   <span class="company-name">Motherson Sumi Wiring India Limited</span>
-  <img src="Logo.png" class="company-logo" alt="Motherson Logo">
+  <img src="Logo.png" class="company-logo">
 </div>
 
-<h3>JSON Load Verification Page</h3>
+<h3>3D Printed Parts – Live Ordering & SAP PR</h3>
 
-<p id="status">Loading products.json…</p>
+<p>
+✅ Plant: <b>P51</b><br>
+✅ Data loaded from local JSON (IT‑compliant)<br>
+✅ Approval workflow enabled
+</p>
 
+<!-- APPROVAL ROW -->
+<h3>Approval</h3>
+
+<label>
+  <input type="checkbox" id="approvalCheck"> Approval Required
+</label>
+
+&nbsp;&nbsp;
+
+<label>Approver:</label>
+<select id="approver">
+  <option value="">-- Select Approver --</option>
+  <option value="rakesh.ranjan@mswil.motherson.com|Rakesh Ranjan">Rakesh Ranjan</option>
+  <option value="nitin.hule@mswil.motherson.com|Nitin Hule">Nitin Hule</option>
+</select>
+
+&nbsp;&nbsp;
+
+<label>Manufactured By:</label>
+<select id="manufacturer">
+  <option value="">-- Select --</option>
+  <option value="P51 : Laxman Gutte">P51 : Laxman Gutte</option>
+</select>
+
+<p>
+  <b>Status:</b>
+  <span id="status" class="status">Draft</span>
+</p>
+
+<!-- SEARCH -->
+<input id="search"
+       placeholder="Search Material / Jig / Description"
+       style="padding:10px;width:450px"
+       onkeyup="renderTable()">
+
+<!-- PARTS TABLE -->
 <table>
 <thead>
 <tr>
   <th>Material No</th>
   <th>Jig Code</th>
   <th>Description</th>
-  <th>Price</th>
+  <th>Unit ₹</th>
+  <th>Qty</th>
+  <th>Total ₹</th>
+  <th>Action</th>
 </tr>
 </thead>
-<tbody id="rows"></tbody>
+<tbody id="rows">
+<tr><td colspan="7">Loading data…</td></tr>
+</tbody>
 </table>
 
+<br>
+<button onclick="exportPR()">✅ Export SAP PR & Send for Approval</button>
+
+<footer>
+© <span id="year"></span> credit this Software Developed by Laxman Gutte in Java Platform
+</footer>
+
 <script>
+let products = [];
+let cart = [];
+
+/* LOAD JSON (encoding-safe) */
 fetch("products.json")
-  .then(res => {
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
-  })
-  .then(data => {
-    document.getElementById("status").innerText =
-      "✅ Records loaded: " + data.length;
+  .then(r => r.text())
+  .then(t => {
+    t = t.replace(/^\uFEFF/, "");
+    const data = JSON.parse(t);
 
-    const rows = document.getElementById("rows");
+    products = data.map(r => ({
+      material: r["Material No"] || "",
+      jig: r["Jig Code"] || "",
+      desc: r["Description"] || "",
+      price: Number(r["Price"] || 0)
+    })).filter(p => p.material && p.desc);
 
-    data.slice(0, 20).forEach(r => {
-      rows.innerHTML += `
-        <tr>
-          <td>${r["Material No"]}</td>
-          <td>${r["Jig Code"]}</td>
-          <td>${r["Description"]}</td>
-          <td>${r["Price"]}</td>
-        </tr>`;
-    });
+    renderTable();
   })
   .catch(err => {
-    document.getElementById("status").innerText =
-      "❌ Failed to load products.json";
-    console.error(err);
+    rows.innerHTML =
+      "<tr><td colspan='7'>❌ Failed to load products.json</td></tr>";
   });
+
+function renderTable() {
+  const q = search.value.toLowerCase();
+  rows.innerHTML = "";
+  let found = false;
+
+  products.forEach((p, i) => {
+    if (
+      p.material.toLowerCase().includes(q) ||
+      p.jig.toLowerCase().includes(q) ||
+      p.desc.toLowerCase().includes(q)
+    ) {
+      found = true;
+      const priceClass = p.price === 0 ? "price-zero" : "";
+      rows.innerHTML += `
+        <tr class="${priceClass}">
+          <td>${p.material}</td>
+          <td>${p.jig}</td>
+          <td>${p.desc}</td>
+          <td>${p.price}</td>
+          <td>
+            <input type="number" min="1" value="1"
+              onchange="document.getElementById('tot${i}').innerText=this.value*${p.price}">
+          </td>
+          <td id="tot${i}">${p.price}</td>
+          <td>
+            <button onclick="addToCart(${i})">Add</button>
+          </td>
+        </tr>`;
+    }
+  });
+
+  if (!found) {
+    rows.innerHTML = "<tr><td colspan='7'>No matching parts found</td></tr>";
+  }
+}
+
+function addToCart(i) {
+  const qty = Number(document.querySelector(`#rows tr:nth-child(${i+1}) input`).value);
+  const p = products[i];
+
+  cart.push({
+    ...p,
+    qty: qty,
+    total: qty * p.price
+  });
+
+  alert("Part added to cart ✅");
+}
+
+function exportPR() {
+  if (!cart.length) return alert("Cart is empty");
+  if (!approvalCheck.checked) return alert("Approval Required");
+  if (!approver.value) return alert("Select Approver");
+  if (!manufacturer.value) return alert("Select Manufactured By");
+
+  const pr = "MSWIL-PR-" + Date.now();
+  let csv =
+    "PR,Material,Jig,Description,Qty,Unit Price,Total,Manufactured By\n";
+
+  cart.forEach(p => {
+    csv += [
+      pr,
+      p.material,
+      p.jig,
+      p.desc,
+      p.qty,
+      p.price,
+      p.total,
+      manufacturer.value
+    ].join(",") + "\n";
+  });
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = pr + ".csv";
+  a.click();
+
+  const [mail, name] = approver.value.split("|");
+  window.location.href =
+    `mailto:${mail}?subject=Approval Required - ${pr}`;
+}
+
+year.innerText = new Date().getFullYear();
 </script>
 
 </body>
