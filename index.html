@@ -11,15 +11,14 @@ body { font-family: Arial, sans-serif; padding: 24px; }
 .header {
   display: flex;
   align-items: center;
-  gap: 10px;
 }
 .header h1 {
   margin: 0;
   font-size: 26px;
 }
 .header img {
-  height: 28px;            /* logo AFTER company name */
-  margin-left: 8px;
+  height: 30px;
+  margin-left: 8px; /* logo after company name */
 }
 
 table {
@@ -34,6 +33,7 @@ th, td {
 th {
   background: #f2f2f2;
 }
+
 input[type="number"] { width: 70px; }
 button { padding: 6px 10px; cursor: pointer; }
 
@@ -45,6 +45,7 @@ footer {
   font-size: 12px;
   color: #555;
 }
+
 .status { font-weight: bold; }
 </style>
 </head>
@@ -67,10 +68,15 @@ footer {
 ✅ Approval workflow enabled
 </p>
 
-<!-- APPROVAL -->
+<!-- APPROVAL + MANUFACTURED BY -->
 <h3>Approval</h3>
-<label><input type="checkbox" id="approvalCheck"> Approval Required</label>
-<br><br>
+
+<label>
+  <input type="checkbox" id="approvalCheck">
+  Approval Required
+</label>
+
+&nbsp;&nbsp;&nbsp;
 
 <label>Approver:</label>
 <select id="approver">
@@ -81,9 +87,14 @@ footer {
   <option value="nitin.hule@mswil.motherson.com|Nitin Hule">
     Nitin Hule
   </option>
-  <option value="laxman.gutte@mswil.motherson.com|Laxman Gutte">
-    Manufactured by – Laxman Gutte
-  </option>
+</select>
+
+&nbsp;&nbsp;&nbsp;
+
+<label>Manufactured By:</label>
+<select id="manufacturer">
+  <option value="">-- Select --</option>
+  <option value="P51 : Laxman Gutte">P51 : Laxman Gutte</option>
 </select>
 
 <p>
@@ -92,10 +103,12 @@ footer {
 </p>
 
 <!-- SEARCH -->
-<input id="search"
-       placeholder="Search Material / Jig / Description"
-       style="padding:10px;width:450px;"
-       onkeyup="renderTable()">
+<input
+  id="search"
+  placeholder="Search Material / Jig / Description"
+  style="padding:10px;width:450px;"
+  onkeyup="renderTable()"
+/>
 
 <!-- TABLE -->
 <table>
@@ -129,9 +142,12 @@ let currentPR = "";
 
 /* ✅ SAFE JSON LOAD (BOM‑proof) */
 fetch("products.json")
-  .then(r => r.text())
+  .then(r => {
+    if (!r.ok) throw new Error("products.json not found");
+    return r.text();
+  })
   .then(txt => {
-    txt = txt.replace(/^\uFEFF/, "");   // remove BOM
+    txt = txt.replace(/^\uFEFF/, ""); // remove BOM if present
     const data = JSON.parse(txt);
 
     products = data.map(r => ({
@@ -168,10 +184,16 @@ function renderTable() {
           <td>${p.jig}</td>
           <td>${p.desc}</td>
           <td>${p.price}</td>
-          <td><input type="number" value="1" min="1"
-              onchange="this.parentElement.nextElementSibling.innerText=this.value*${p.price}"></td>
+          <td>
+            <input type="number" value="1" min="1"
+              onchange="this.parentElement.nextElementSibling.innerText=this.value*${p.price}">
+          </td>
           <td>${p.price}</td>
-          <td><button onclick="cart.push({...products[${i}],qty:1,total:${p.price}});alert('Added ✅');">Add</button></td>
+          <td>
+            <button onclick="cart.push({...products[${i}],qty:1,total:${p.price}});alert('Added ✅');">
+              Add
+            </button>
+          </td>
         </tr>
       `;
     }
@@ -184,21 +206,51 @@ function renderTable() {
 }
 
 function exportSAPPR() {
-  if (!cart.length) return alert("Cart empty");
-  if (!approvalCheck.checked) return alert("Approval required");
-  if (!approver.value) return alert("Select approver");
+  if (!cart.length) return alert("Cart is empty");
+  if (!approvalCheck.checked) return alert("Approval Required");
+  if (!approver.value) return alert("Select Approver");
+  if (!manufacturer.value) return alert("Select Manufactured By");
 
-  const pr = "MSWIL-PR-" + Date.now();
-  let csv = "PR,Material,Description,Qty,Unit,Plant,Total,Jig\n";
+  currentPR = "MSWIL-PR-" + Date.now();
+  status.innerText = "Pending Approval";
+  status.style.color = "orange";
 
-  cart.forEach(p =>
-    csv += [pr,p.material,p.desc,1,"EA","P51",p.price,p.jig].join(",") + "\n"
-  );
+  let csv =
+    "PR,Material,Description,Qty,Unit,Plant,Total,Jig,Manufactured By\n";
+
+  cart.forEach(p => {
+    csv += [
+      currentPR,
+      p.material,
+      p.desc,
+      p.qty || 1,
+      "EA",
+      "P51",
+      p.total || p.price,
+      p.jig,
+      manufacturer.value
+    ].join(",") + "\n";
+  });
 
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-  a.download = pr + ".csv";
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = currentPR + ".csv";
   a.click();
+
+  const [mail, name] = approver.value.split("|");
+  const body =
+`Dear ${name},
+
+PR No: ${currentPR}
+Manufactured By: ${manufacturer.value}
+
+Please review and approve.
+
+Regards,
+MSWIL 3D Printing Team`;
+
+  window.location.href =
+    `mailto:${mail}?subject=Approval Required - ${currentPR}&body=${encodeURIComponent(body)}`;
 }
 
 year.innerText = new Date().getFullYear();
