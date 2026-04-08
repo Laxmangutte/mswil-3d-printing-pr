@@ -1,51 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>MSWIL – 3D Printed Parts Ordering</title>
+<title>MSWIL JSON DEBUG</title>
 
 <style>
-body { font-family: Arial, sans-serif; padding: 24px; }
+body { font-family: Arial; padding: 20px; }
 
-/* HEADER */
 .header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 15px;
 }
+
 .company-name {
   font-size: 30px;
   font-weight: bold;
 }
+
 .company-logo {
-  height: 50px;   /* Bigger & readable */
+  height: 60px;   /* BIG & CLEAR */
 }
 
-/* TABLE */
 table {
-  width: 100%;
   border-collapse: collapse;
-  margin-top: 15px;
+  width: 100%;
+  margin-top: 20px;
 }
+
 th, td {
-  border: 1px solid #777;
-  padding: 8px;
+  border: 1px solid #555;
+  padding: 6px;
 }
-th { background: #f2f2f2; }
-
-input[type="number"] { width: 70px; }
-button { padding: 6px 10px; cursor: pointer; }
-
-footer {
-  margin-top: 30px;
-  padding-top: 10px;
-  border-top: 1px solid #ccc;
-  text-align: center;
-  font-size: 12px;
-  color: #555;
-}
-
-.status { font-weight: bold; }
 </style>
 </head>
 
@@ -54,149 +40,53 @@ footer {
 <!-- HEADER -->
 <div class="header">
   <span class="company-name">Motherson Wiring India Limited</span>
-  Logo.png
+  <img src="Logo.png" class="company-logo">
 </div>
 
-<h3>3D Printed Parts – Live Ordering & SAP PR</h3>
+<h3>JSON Load Proof Page</h3>
 
-<p>
-✅ Plant: <b>P51</b><br>
-✅ Data loaded from local JSON (IT‑compliant)<br>
-✅ Approval workflow enabled
-</p>
+<p id="status">Loading products.json…</p>
 
-<!-- APPROVAL -->
-<h3>Approval</h3>
-
-<label>
-  <input type="checkbox" id="approvalCheck"> Approval Required
-</label>
-
-&nbsp;&nbsp;
-
-<label>Approver:</label>
-<select id="approver">
-  <option value="">-- Select Approver --</option>
-  <option value="rakesh.ranjan@mswil.motherson.com|Rakesh Ranjan">Rakesh Ranjan</option>
-  <option value="nitin.hule@mswil.motherson.com|Nitin Hule">Nitin Hule</option>
-</select>
-
-&nbsp;&nbsp;
-
-<label>Manufactured By:</label>
-<select id="manufacturer">
-  <option value="">-- Select --</option>
-  <option value="P51 : Laxman Gutte">P51 : Laxman Gutte</option>
-</select>
-
-<p>
-  <b>Status:</b>
-  <span id="status" class="status" style="color: gray;">Draft</span>
-</p>
-
-<!-- SEARCH -->
-<input id="search"
-       placeholder="Search Material / Jig / Description"
-       style="padding:10px;width:450px"
-       onkeyup="renderTable()">
-
-<!-- TABLE -->
 <table>
 <thead>
 <tr>
-  <th>Material</th>
+  <th>Material No</th>
   <th>Jig Code</th>
   <th>Description</th>
-  <th>Unit ₹</th>
-  <th>Qty</th>
-  <th>Total ₹</th>
-  <th>Action</th>
+  <th>Price</th>
 </tr>
 </thead>
-<tbody id="rows">
-<tr><td colspan="7">Loading data…</td></tr>
-</tbody>
+<tbody id="rows"></tbody>
 </table>
 
-<br>
-<button onclick="exportSAPPR()">✅ Export SAP PR & Send for Approval</button>
-
-<footer>
-© <span id="year"></span> credit: this Software Developed by Laxman Gutte in Java Platform
-</footer>
-
 <script>
-let products = [];
-let cart = [];
-
-/* ✅ Load JSON safely */
 fetch("products.json")
   .then(r => r.text())
   .then(t => {
     t = t.replace(/^\uFEFF/, "");
     const data = JSON.parse(t);
 
-    products = data.map(r => ({
-      material: r["Material No"] || r["Material"] || "",
-      jig: r["Jig Code"] || "",
-      desc: r["Description"] || "",
-      price: Number(r["Price"] || 0)   // ✅ ALLOW EMPTY PRICE
-    }))
-    .filter(p => p.material && p.desc); // ✅ NO price filter
+    document.getElementById("status").innerText =
+      "✅ Records loaded: " + data.length;
 
-    renderTable();
-  })
-  .catch(e => {
-    document.getElementById("rows").innerHTML =
-      "<tr><td colspan='7'>❌ Failed to load products.json</td></tr>";
-    console.error(e);
-  });
+    const rows = document.getElementById("rows");
 
-function renderTable() {
-  const q = search.value.toLowerCase();
-  rows.innerHTML = "";
-  let found = false;
-
-  products.forEach((p, i) => {
-    if (
-      p.material.toLowerCase().includes(q) ||
-      p.jig.toLowerCase().includes(q) ||
-      p.desc.toLowerCase().includes(q)
-    ) {
-      found = true;
+    data.slice(0, 20).forEach(p => {
       rows.innerHTML += `
         <tr>
-          <td>${p.material}</td>
-          <td>${p.jig}</td>
-          <td>${p.desc}</td>
-          <td>${p.price}</td>
-          <td>
-            <input type="number" value="1" min="1"
-              onchange="this.parentElement.nextElementSibling.innerText=this.value*${p.price}">
-          </td>
-          <td>${p.price}</td>
-          <td>
-            <button onclick="cart.push({...p,qty:1,total:p.price});alert('Added ✅')">Add</button>
-          </td>
-        </tr>`;
-    }
+          <td>${p["Material No"]}</td>
+          <td>${p["Jig Code"]}</td>
+          <td>${p["Description"]}</td>
+          <td>${p["Price"]}</td>
+        </tr>
+      `;
+    });
+  })
+  .catch(err => {
+    document.getElementById("status").innerText =
+      "❌ JSON LOAD ERROR";
+    console.error(err);
   });
-
-  if (!found) {
-    rows.innerHTML = "<tr><td colspan='7'>No matching parts found</td></tr>";
-  }
-}
-
-function exportSAPPR() {
-  if (!cart.length) return alert("Cart empty");
-  if (!approvalCheck.checked) return alert("Approval Required");
-  if (!approver.value) return alert("Select Approver");
-  if (!manufacturer.value) return alert("Select Manufactured By");
-
-  alert("SAP PR generated ✅");
-}
-
-year.innerText = new Date().getFullYear();
 </script>
 
 </body>
