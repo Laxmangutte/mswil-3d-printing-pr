@@ -334,18 +334,25 @@ function addToCart(i){
 
 /* VIEW IMAGE */
 function viewImage(jig){
-  imgTitle.innerText="Jig Image : "+jig;
-  imgMsg.innerText="";
-  jigImg.src="jig-images/"+jig+".jpg";
-  jigImg.onerror=function(){
-    imgMsg.innerText="No image available for this Jig";
-    this.style.display="none";
-  }
-  jigImg.onload=function(){
-    this.style.display="block";
-  }
-  imageModal.style.display="block";
+  imgTitle.innerText = "Jig Image : " + jig;
+  imgMsg.innerText = "";
+  jigImg.style.display = "block";
+
+  // ✅ Try PNG first (your current images)
+  jigImg.src = "jig-images/" + jig + ".png";
+
+  // ✅ If PNG not found, try JPG
+  jigImg.onerror = function () {
+    jigImg.onerror = function () {
+      imgMsg.innerText = "No image available for this Jig";
+      jigImg.style.display = "none";
+    };
+    jigImg.src = "jig-images/" + jig + ".jpg";
+  };
+
+  imageModal.style.display = "block";
 }
+
 function closeImage(){ imageModal.style.display="none"; }
 
 /* CART VIEW */
