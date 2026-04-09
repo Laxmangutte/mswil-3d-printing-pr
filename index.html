@@ -25,6 +25,8 @@ body{
 }
 .company-logo{
   height:55px;
+  width:auto;
+  object-fit:contain;
 }
 
 /* ===== FORM ROW ===== */
@@ -35,6 +37,7 @@ body{
   flex-wrap:wrap;
   margin-bottom:10px;
 }
+
 input[type=text], select{
   padding:6px;
 }
@@ -120,10 +123,13 @@ footer{
 
 <body>
 
-<!-- ===== HEADER ===== -->
+<!-- ✅ LOGO FIXED FOREVER (NO TEXT, NO REGRESSION) -->
 <div class="header">
   <span class="company-name">Motherson Sumi Wiring India Limited</span>
-  Logo.png
+  <img src="Logo.png"
+       class="company-logo"
+       alt=""
+       onerror="this.style.display='none'">
 </div>
 
 <h3>3D Printed Parts – Live Ordering & SAP PR</h3>
@@ -164,12 +170,14 @@ footer{
 <h4>P51 Approval Authority (Mandatory)</h4>
 <select id="p51Authority">
   <option value="">-- Select --</option>
-  <option value="vijay.aggarwal@mswil.motherson.com">Vijay Aggarwal</option>
+  <option value="vijay.aggarwal@mswil.motherson.com">
+    Vijay Aggarwal
+  </option>
 </select>
 
 <p><b>Status:</b> <span id="status">Draft</span></p>
 
-<!-- ===== SEARCH BAR ===== -->
+<!-- ===== STICKY SEARCH ===== -->
 <div class="sticky-toolbar">
   <input id="search" class="search-box"
          placeholder="Search Material / Jig / Description">
@@ -237,7 +245,6 @@ footer{
 <script>
 let products=[],cart=[];
 
-/* LOAD DATA */
 fetch("products.json")
 .then(r=>r.text())
 .then(t=>{
@@ -260,7 +267,6 @@ fetch("products.json")
 reqUnit.onchange=updateApprovers;
 search.onkeyup=render;
 
-/* APPROVERS */
 function updateApprovers(){
   approver.innerHTML="";
   const u=reqUnit.value;
@@ -277,7 +283,6 @@ function addApr(n){
   approver.appendChild(o);
 }
 
-/* TABLE */
 function render(){
   rows.innerHTML="";
   const q=search.value.toLowerCase();
@@ -290,10 +295,7 @@ function render(){
         <td>${p.desc}</td>
         <td>${p.price}</td>
         <td>${p.stock}</td>
-        <td>
-          <input type="number" min="1" value="1" id="q${i}"
-                 onchange="calc(${i})">
-        </td>
+        <td><input type="number" min="1" value="1" id="q${i}" onchange="calc(${i})"></td>
         <td id="t${i}">${p.price.toFixed(2)}</td>
         <td><button onclick="viewImage('${p.jig}')">📷 View</button></td>
         <td><button onclick="addToCart(${i})">Add</button></td>
@@ -302,14 +304,11 @@ function render(){
   });
 }
 
-/* TOTAL */
 function calc(i){
   const qty=Number(document.getElementById("q"+i).value);
-  document.getElementById("t"+i).innerText=
-    (qty*products[i].price).toFixed(2);
+  document.getElementById("t"+i).innerText=(qty*products[i].price).toFixed(2);
 }
 
-/* CART */
 function addToCart(i){
   const qty=Number(document.getElementById("q"+i).value);
   const p=products[i];
@@ -318,6 +317,7 @@ function addToCart(i){
   exportBtn.disabled=false;
   alert("Added to cart");
 }
+
 function showCart(){
   cartRows.innerHTML="";
   if(!cart.length){
@@ -336,7 +336,6 @@ function showCart(){
 }
 function closeCart(){ cartModal.style.display="none"; }
 
-/* IMAGE VIEW (PNG + JPG + TRIM SAFE) */
 function viewImage(jig){
   const clean=jig.trim();
   imgTitle.innerText="Jig Image : "+clean;
@@ -348,14 +347,13 @@ function viewImage(jig){
     jigImg.onerror=function(){
       imgMsg.innerText="No image available for this Jig";
       jigImg.style.display="none";
-    }
+    };
     jigImg.src="jig-images/"+clean+".jpg";
   };
   imageModal.style.display="block";
 }
 function closeImage(){ imageModal.style.display="none"; }
 
-/* EXPORT PR (Option 1 – Mail Based) */
 function exportPR(){
   if(!approvalCheck.checked) return alert("Approval required");
   if(!p51Authority.value) return alert("Select P51 Approval Authority");
@@ -383,4 +381,3 @@ function exportPR(){
 
 </body>
 </html>
-``
