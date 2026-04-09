@@ -5,16 +5,12 @@
 <title>MSWIL – 3D Printed Parts Ordering</title>
 
 <style>
-body{
-  font-family: Arial, sans-serif;
-  padding: 24px;
-}
+body { font-family: Arial, sans-serif; padding: 24px; }
 
 .header{
   display:flex;
   align-items:center;
   gap:14px;
-  margin-bottom:10px;
 }
 
 .company-name{
@@ -26,7 +22,6 @@ body{
   height:60px;
 }
 
-/* Tables */
 table{
   width:100%;
   border-collapse:collapse;
@@ -38,31 +33,15 @@ th,td{
   padding:8px;
 }
 
-th{
-  background:#f2f2f2;
-}
+th{ background:#f2f2f2; }
 
-input[type="number"]{
-  width:70px;
-}
+input[type="number"]{ width:70px; }
+input[type="text"]{ padding:6px; }
 
-input[type="text"]{
-  padding:6px;
-}
+button{ padding:6px 10px; cursor:pointer; }
+button:disabled{ background:#ccc; cursor:not-allowed; }
 
-button{
-  padding:6px 10px;
-  cursor:pointer;
-}
-
-button:disabled{
-  background:#ccc;
-  cursor:not-allowed;
-}
-
-.price-zero{
-  background:#fff3cd;
-}
+.price-zero{ background:#fff3cd; }
 
 footer{
   margin-top:30px;
@@ -73,9 +52,7 @@ footer{
   text-align:center;
 }
 
-.status{
-  font-weight:bold;
-}
+.status{ font-weight:bold; }
 </style>
 </head>
 
@@ -103,7 +80,7 @@ footer{
 &nbsp;&nbsp;
 
 <label>Requesting Unit:</label>
-<select id="reqUnit" onchange="updateApprovers()">
+<select id="reqUnit">
   <option value="">-- Select --</option>
   <option>P25</option>
   <option>P26</option>
@@ -127,7 +104,6 @@ footer{
   <option value="">-- Select Requesting Unit First --</option>
 </select>
 
-<!-- P51 APPROVAL (ALWAYS REQUIRED) -->
 <h3>P51 Approval Authority (Mandatory for ALL Orders)</h3>
 <select id="p51Authority">
   <option value="">-- Select --</option>
@@ -147,8 +123,7 @@ footer{
 <!-- SEARCH -->
 <input id="search"
   placeholder="Search Material / Jig / Description"
-  style="padding:10px;width:450px"
-  onkeyup="renderTable()">
+  style="padding:10px;width:450px">
 
 <!-- TABLE -->
 <table>
@@ -162,3 +137,151 @@ footer{
   <th>Total ₹</th>
   <th>Action</th>
 </tr>
+</thead>
+<tbody id="rows">
+<tr><td colspan="7">Loading data…</td></tr>
+</tbody>
+</table>
+
+<br>
+<button onclick="exportPR()">✅ Export SAP PR & Send for Approval</button>
+
+<footer>
+© <span id="year"></span> – Software Developed by Laxman Gutte
+</footer>
+
+<script>
+const VALID_EMP_IDS = [
+  "5095","5271","S08457","S11306","S11412",
+  "5052","S11868","S10694","S09643"
+];
+
+let products=[], cart=[];
+
+/* -------- Load JSON -------- */
+fetch("products.json")
+  .then(r=>r.text())
+  .then(t=>{
+    t=t.replace(/^\uFEFF/,"");
+    const data=JSON.parse(t);
+
+    products=data.map(r=>({
+      material:r["Material No"]||"",
+      jig:r["Jig Code"]||"",
+      desc:r["Description"]||"",
+      price:Number(r["Price"]||0)
+    })).filter(p=>p.material && p.desc);
+
+    search.value="";      // ✅ clear filter
+    renderTable();
+    updateApprovers();    // ✅ FIX main approver auto-load
+  });
+
+/* -------- Approver Logic -------- */
+reqUnit.addEventListener("change", updateApprovers);
+
+function updateApprovers(){
+  approver.innerHTML='<option value="">-- Select --</option>';
+  const unit=reqUnit.value;
+
+  if(["P25","P48","P49","P51"].includes(unit)){
+    addApprover("rakesh.ranjan@mswil.motherson.com","Rakesh Ranjan");
+    addApprover("nitin.hule@mswil.motherson.com","Nitin Hule");
+  }
+
+  if(unit==="P26"){
+    addApprover("rakesh.ekhande@mswil.motherson.com","Rakesh Ekhande");
+  }
+}
+
+function addApprover(mail,name){
+  const o=document.createElement("option");
+  o.value=mail+"|"+name;
+  o.textContent=name;
+  approver.appendChild(o);
+}
+
+/* -------- Render Table -------- */
+search.addEventListener("keyup", renderTable);
+
+function renderTable(){
+  const q=search.value.toLowerCase();
+  rows.innerHTML="";
+
+  products.forEach((p,i)=>{
+    if(
+      p.material.toLowerCase().includes(q) ||
+      p.jig.toLowerCase().includes(q) ||
+      p.desc.toLowerCase().includes(q)
+    ){
+      const zero=p.price<=0;
+      rows.innerHTML+=`
+      <tr class="${zero?'price-zero':''}">
+        <td>${p.material}</td>
+        <td>${p.jig}</td>
+        <td>${p.desc}</td>
+        <td>${p.price}</td>
+        <td>
+          <input type="number" min="1" value="1"
+           onchange="document.getElementById('tot${i}').innerText=this.value*${p.price}">
+        </td>
+        <td id="tot${i}">${p.price}</td>
+        <td>
+          <button ${zero?'disabled':''} onclick="addToCart(${i})">Add</button>
+        </td>
+      </tr>`;
+    }
+  });
+}
+
+/* -------- Cart -------- */
+function addToCart(i){
+  const total=Number(document.getElementById("tot"+i).innerText);
+  const qty=products[i].price>0?total/products[i].price:1;
+  cart.push({...products[i],qty,total});
+  alert("Item added ✅");
+}
+
+/* -------- Export PR -------- */
+function exportPR(){
+  if(!cart.length) return alert("Cart is empty");
+  if(!approvalCheck.checked) return alert("Main approval required");
+  if(!approver.value) return alert("Select Main Approver");
+  if(!reqUnit.value) return alert("Select Requesting Unit");
+  if(!VALID_EMP_IDS.includes(empId.value.trim()))
+    return alert("Invalid Employee ID");
+  if(!p51Authority.value)
+    return alert("P51 Approval Authority mandatory");
+  if(cart.some(p=>p.price<=0))
+    return alert("PR blocked: zero price item");
+
+  const pr="MSWIL-PR-"+Date.now();
+  status.innerText="Pending Approval";
+  status.style.color="orange";
+
+  let csv="PR,Material,Jig,Description,Qty,Price,Total,Unit,EmpID\n";
+  cart.forEach(p=>{
+    csv+=[
+      pr,p.material,p.jig,p.desc,p.qty,p.price,p.total,reqUnit.value,empId.value
+    ].join(",")+"\n";
+  });
+
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=pr+".csv";
+  a.click();
+
+  const mails=[
+    approver.value.split("|")[0],
+    "sumeet.patel@motherson.com",
+    p51Authority.value.split("|")[0]
+  ].join(",");
+
+  location.href=`mailto:${mails}?subject=Approval Required - ${pr}`;
+}
+
+year.innerText=new Date().getFullYear();
+</script>
+
+</body>
+</html>
