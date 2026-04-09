@@ -5,12 +5,16 @@
 <title>MSWIL – 3D Printed Parts Ordering</title>
 
 <style>
-body { font-family: Arial, sans-serif; padding: 24px; }
+body{
+  font-family: Arial, sans-serif;
+  padding: 24px;
+}
 
 .header{
   display:flex;
   align-items:center;
   gap:14px;
+  margin-bottom:10px;
 }
 
 .company-name{
@@ -22,6 +26,7 @@ body { font-family: Arial, sans-serif; padding: 24px; }
   height:60px;
 }
 
+/* Tables */
 table{
   width:100%;
   border-collapse:collapse;
@@ -33,15 +38,35 @@ th,td{
   padding:8px;
 }
 
-th{ background:#f2f2f2; }
+th{
+  background:#f2f2f2;
+}
 
-input[type="number"]{ width:70px; }
-input[type="text"]{ padding:6px; }
+input[type="number"]{
+  width:70px;
+}
 
-button{ padding:6px 10px; cursor:pointer; }
-button:disabled{ background:#ccc; cursor:not-allowed; }
+input[type="text"]{
+  padding:6px;
+}
 
-.price-zero{ background:#fff3cd; }
+select{
+  padding:6px;
+}
+
+button{
+  padding:6px 10px;
+  cursor:pointer;
+}
+
+button:disabled{
+  background:#ccc;
+  cursor:not-allowed;
+}
+
+.price-zero{
+  background:#fff3cd;
+}
 
 footer{
   margin-top:30px;
@@ -52,7 +77,9 @@ footer{
   text-align:center;
 }
 
-.status{ font-weight:bold; }
+.status{
+  font-weight:bold;
+}
 </style>
 </head>
 
@@ -61,7 +88,7 @@ footer{
 <!-- HEADER -->
 <div class="header">
   <span class="company-name">Motherson Sumi Wiring India Limited</span>
-  <img src="Logo.png" class="company-logo" alt="MSWIL Logo">
+  Logo.png
 </div>
 
 <h3>3D Printed Parts – Live Ordering & SAP PR</h3>
@@ -87,6 +114,16 @@ footer{
   <option>P51</option>
   <option>P48</option>
   <option>P49</option>
+</select>
+
+&nbsp;&nbsp;
+
+<label>Manufacturing Unit:</label>
+<select id="mfgUnit">
+  <option value="">-- Select --</option>
+  <option value="P51|laxman.gutte@mswil.motherson.com">
+    P51 – Laxman Gutte
+  </option>
 </select>
 
 <!-- APPROVAL -->
@@ -147,18 +184,20 @@ footer{
 <button onclick="exportPR()">✅ Export SAP PR & Send for Approval</button>
 
 <footer>
-© <span id="year"></span> – Software Developed by Laxman Gutte
+© <span id="year"></span> – Software Developed by <b>Laxman Gutte</b>
 </footer>
 
 <script>
+/* ---------- CONSTANTS ---------- */
 const VALID_EMP_IDS = [
   "5095","5271","S08457","S11306","S11412",
   "5052","S11868","S10694","S09643"
 ];
 
-let products=[], cart=[];
+let products = [];
+let cart = [];
 
-/* -------- Load JSON -------- */
+/* ---------- LOAD JSON ---------- */
 fetch("products.json")
   .then(r=>r.text())
   .then(t=>{
@@ -172,12 +211,11 @@ fetch("products.json")
       price:Number(r["Price"]||0)
     })).filter(p=>p.material && p.desc);
 
-    search.value="";      // ✅ clear filter
     renderTable();
-    updateApprovers();    // ✅ FIX main approver auto-load
+    updateApprovers();
   });
 
-/* -------- Approver Logic -------- */
+/* ---------- MAIN APPROVER LOGIC ---------- */
 reqUnit.addEventListener("change", updateApprovers);
 
 function updateApprovers(){
@@ -201,7 +239,7 @@ function addApprover(mail,name){
   approver.appendChild(o);
 }
 
-/* -------- Render Table -------- */
+/* ---------- SEARCH & RENDER ---------- */
 search.addEventListener("keyup", renderTable);
 
 function renderTable(){
@@ -234,7 +272,7 @@ function renderTable(){
   });
 }
 
-/* -------- Cart -------- */
+/* ---------- CART ---------- */
 function addToCart(i){
   const total=Number(document.getElementById("tot"+i).innerText);
   const qty=products[i].price>0?total/products[i].price:1;
@@ -242,27 +280,30 @@ function addToCart(i){
   alert("Item added ✅");
 }
 
-/* -------- Export PR -------- */
+/* ---------- EXPORT PR ---------- */
 function exportPR(){
   if(!cart.length) return alert("Cart is empty");
   if(!approvalCheck.checked) return alert("Main approval required");
   if(!approver.value) return alert("Select Main Approver");
   if(!reqUnit.value) return alert("Select Requesting Unit");
+  if(!mfgUnit.value) return alert("Select Manufacturing Unit");
   if(!VALID_EMP_IDS.includes(empId.value.trim()))
     return alert("Invalid Employee ID");
   if(!p51Authority.value)
-    return alert("P51 Approval Authority mandatory");
+    return alert("P51 Approval Authority is mandatory");
   if(cart.some(p=>p.price<=0))
     return alert("PR blocked: zero price item");
 
-  const pr="MSWIL-PR-"+Date.now();
   status.innerText="Pending Approval";
   status.style.color="orange";
 
-  let csv="PR,Material,Jig,Description,Qty,Price,Total,Unit,EmpID\n";
+  const pr="MSWIL-PR-"+Date.now();
+  let csv="PR,Material,Jig,Description,Qty,Price,Total,ReqUnit,MfgUnit,EmpID\n";
+
   cart.forEach(p=>{
     csv+=[
-      pr,p.material,p.jig,p.desc,p.qty,p.price,p.total,reqUnit.value,empId.value
+      pr,p.material,p.jig,p.desc,p.qty,p.price,p.total,
+      reqUnit.value,mfgUnit.value.split('|')[0],empId.value
     ].join(",")+"\n";
   });
 
@@ -274,7 +315,8 @@ function exportPR(){
   const mails=[
     approver.value.split("|")[0],
     "sumeet.patel@motherson.com",
-    p51Authority.value.split("|")[0]
+    p51Authority.value.split("|")[0],
+    mfgUnit.value.split("|")[1]
   ].join(",");
 
   location.href=`mailto:${mails}?subject=Approval Required - ${pr}`;
